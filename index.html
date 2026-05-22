@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wall St. Rookie — Stock Trading Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2d45;
+    --text: #e8edf5;
+    --muted: #5a6a84;
+    --accent: #00e5a0;
+    --accent2: #0090ff;
+    --red: #ff4d6a;
+    --green: #00e5a0;
+    --yellow: #ffd166;
+    --gold: #f5c842;
+    --orange: #ff9f43;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0,229,160,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 40% at 90% 80%, rgba(0,144,255,0.05) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* CRASH OVERLAY */
+  .crash-flash {
+    display: none;
+    position: fixed; inset: 0; z-index: 999;
+    background: rgba(255,77,106,0.18);
+    pointer-events: none;
+    animation: flash 0.5s ease-out;
+  }
+  @keyframes flash { from { opacity:1; } to { opacity:0; } }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,14,26,0.9);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+  .logo span { color: var(--text); }
+  .portfolio-bar { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+  .stat-pill { display: flex; flex-direction: column; align-items: flex-end; }
+  .stat-pill .label { font-size: 0.58rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-pill .value { font-size: 0.9rem; font-weight: 500; }
+  .btn {
+    background: var(--accent); color: #000; border: none;
+    padding: 7px 16px; border-radius: 6px;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .btn:hover { background: #00ffb3; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .btn-ghost:hover { background: rgba(0,229,160,0.1); transform: none; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:hover { background: #ff6b82; }
+  .btn-orange { background: var(--orange); color: #000; }
+  .btn-orange:hover { background: #ffb347; }
+
+  /* LAYOUT */
+  .container { max-width: 1400px; margin: 0 auto; padding: 22px 20px; position: relative; z-index: 1; }
+  .grid-main { display: grid; grid-template-columns: 1fr 360px; gap: 18px; }
+  .col-left { display: flex; flex-direction: column; gap: 18px; }
+  .col-right { display: flex; flex-direction: column; gap: 18px; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .card-header {
+    padding: 14px 18px 11px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+  .card-body { padding: 14px 18px; }
+
+  /* CHALLENGE BANNER */
+  .challenge-banner {
+    border-radius: 12px; padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    border: 1px solid; flex-wrap: wrap;
+  }
+  .challenge-banner.active-challenge { border-color: var(--orange); background: rgba(255,159,67,0.07); }
+  .challenge-banner.free-play { border-color: var(--border); background: var(--surface); }
+  .ch-left { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
+  .ch-tag { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: var(--orange); }
+  .ch-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; }
+  .ch-desc { font-size: 0.73rem; color: var(--muted); line-height: 1.5; }
+  .ch-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .ch-timer { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--yellow); letter-spacing: 1px; }
+  .ch-timer.danger { color: var(--red); animation: pulse 0.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* MISSIONS */
+  .missions-grid { display: flex; flex-direction: column; gap: 8px; }
+  .mission-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+    transition: border-color 0.3s;
+  }
+  .mission-row.done { border-color: var(--accent); background: rgba(0,229,160,0.05); }
+  .mission-row.done .m-title { color: var(--muted); text-decoration: line-through; }
+  .mission-icon { font-size: 1.1rem; min-width: 24px; text-align: center; }
+  .mission-text { flex: 1; }
+  .m-title { font-size: 0.78rem; line-height: 1.4; }
+  .m-sub { font-size: 0.65rem; color: var(--muted); }
+  .m-reward { font-size: 0.7rem; color: var(--gold); white-space: nowrap; }
+  .m-check { font-size: 1rem; color: var(--accent); min-width: 20px; text-align: center; }
+
+  /* PROGRESS BAR */
+  .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; margin-top: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width 0.5s ease; }
+  .target-bar-wrap { background: var(--surface2); border-radius: 4px; height: 10px; overflow: hidden; margin-top: 6px; }
+  .target-bar { height: 100%; background: linear-gradient(90deg, var(--orange), var(--yellow)); border-radius: 4px; transition: width 0.4s ease; }
+
+  /* TICKER TAPE */
+  .ticker-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 0; overflow: hidden; white-space: nowrap; }
+  .ticker-inner { display: inline-flex; gap: 40px; animation: scroll-left 30s linear infinite; }
+  .ticker-wrap:hover .ticker-inner { animation-play-state: paused; }
+  @keyframes scroll-left { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .ticker-item { display: inline-flex; align-items: center; gap: 8px; font-size: 0.76rem; }
+  .ticker-sym { font-weight: 500; color: var(--text); }
+  .ticker-price { color: var(--muted); }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+
+  /* CHART */
+  .chart-container { padding: 8px 12px 14px; }
+  .chart-controls { display: flex; gap: 8px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+  .chart-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 11px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; transition: all 0.15s;
+  }
+  .chart-btn:hover, .chart-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .stock-selector { margin-left: auto; }
+  .stock-selector select, select.inline-select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 10px; border-radius: 6px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem; cursor: pointer; outline: none;
+  }
+  canvas { width: 100% !important; border-radius: 4px; }
+  .price-display { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .price-big { font-family: 'Syne', sans-serif; font-size: 1.9rem; font-weight: 800; }
+  .price-change { font-size: 0.82rem; padding: 2px 8px; border-radius: 4px; }
+  .price-change.up { background: rgba(0,229,160,0.15); }
+  .price-change.down { background: rgba(255,77,106,0.15); }
+  .price-name { color: var(--muted); font-size: 0.76rem; margin-bottom: 10px; }
+
+  /* TRADE PANEL */
+  .trade-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .trade-label { font-size: 0.7rem; color: var(--muted); min-width: 58px; }
+  input[type=number] {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 11px; border-radius: 6px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem; width: 100%; outline: none; transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--accent); }
+  .trade-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .trade-cost { font-size: 0.7rem; color: var(--muted); text-align: right; margin-top: -4px; margin-bottom: 8px; }
+
+  /* HOLDINGS */
+  .holdings-list { display: flex; flex-direction: column; gap: 9px; }
+  .holding-row {
+    display: flex; align-items: center; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 11px 13px; gap: 12px;
+  }
+  .holding-sym { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; min-width: 50px; }
+  .holding-details { flex: 1; }
+  .holding-name { font-size: 0.65rem; color: var(--muted); }
+  .holding-shares { font-size: 0.76rem; }
+  .holding-value { text-align: right; }
+  .holding-pnl { font-size: 0.7rem; }
+
+  /* LESSON MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 300; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; max-width: 540px; width: 92%; position: relative; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-family: 'Syne', sans-serif; font-size: 1.35rem; font-weight: 800; margin-bottom: 8px; color: var(--accent); }
+  .modal .lesson-badge { display: inline-block; background: rgba(0,229,160,0.15); color: var(--accent); font-size: 0.63rem; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+  .modal p { font-size: 0.83rem; line-height: 1.7; color: #a8b8cc; margin-bottom: 11px; }
+  .modal-close { position: absolute; top: 14px; right: 18px; background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; }
+  .lesson-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .lesson-dots { display: flex; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+  .dot.active { background: var(--accent); }
+
+  /* CHALLENGE SELECT MODAL */
+  .ch-modal { max-width: 640px; }
+  .ch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .ch-card {
+    background: var(--surface2); border: 2px solid var(--border); border-radius: 10px;
+    padding: 16px; cursor: pointer; transition: all 0.2s;
+  }
+  .ch-card:hover { border-color: var(--orange); background: rgba(255,159,67,0.06); }
+  .ch-card.selected { border-color: var(--orange); background: rgba(255,159,67,0.1); }
+  .ch-card-icon { font-size: 1.6rem; margin-bottom: 8px; }
+  .ch-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+  .ch-card-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
+  .ch-card-reward { font-size: 0.68rem; color: var(--gold); margin-top: 6px; }
+
+  /* RESULT MODAL */
+  .result-modal { text-align: center; }
+  .result-emoji { font-size: 3.5rem; margin-bottom: 12px; }
+  .result-modal h2 { font-size: 1.6rem; margin-bottom: 6px; }
+  .result-stats { display: flex; gap: 20px; justify-content: center; margin: 18px 0; flex-wrap: wrap; }
+  .result-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .result-stat .rs-val { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; }
+  .result-stat .rs-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* NEWS */
+  .news-item { padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .news-item:last-child { border-bottom: none; }
+  .news-tag { font-size: 0.6rem; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 4px; display: inline-block; }
+  .news-tag.bullish { background: rgba(0,229,160,0.15); color: var(--green); }
+  .news-tag.bearish { background: rgba(255,77,106,0.15); color: var(--red); }
+  .news-tag.neutral { background: rgba(90,106,132,0.25); color: var(--muted); }
+  .news-tag.crash { background: rgba(255,77,106,0.3); color: var(--red); font-size: 0.62rem; }
+  .news-headline { font-size: 0.76rem; line-height: 1.5; }
+
+  /* SCORE */
+  .score-ring { width: 86px; height: 86px; border-radius: 50%; border: 3px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 14px; position: relative; overflow: hidden; }
+  .score-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--accent) var(--pct, 0%), var(--surface2) 0%); }
+  .score-inner { position: relative; z-index: 1; width: 68px; height: 68px; background: var(--surface); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .score-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; }
+  .score-lbl { font-size: 0.52rem; color: var(--muted); }
+
+  /* TIP */
+  .tip-box { background: rgba(0,229,160,0.05); border: 1px solid rgba(0,229,160,0.2); border-radius: 8px; padding: 11px 13px; font-size: 0.73rem; line-height: 1.6; color: #9ab8a0; }
+  .tip-box strong { color: var(--accent); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 22px; right: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 18px; font-size: 0.8rem; z-index: 500; transform: translateY(80px); opacity: 0; transition: all 0.3s; max-width: 300px; border-left: 3px solid var(--accent); }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { border-left-color: var(--red); }
+  .toast.warn { border-left-color: var(--orange); }
+
+  .empty-state { color: var(--muted); font-size: 0.76rem; text-align: center; padding: 18px 0; }
+
+  @media (max-width: 900px) {
+    .grid-main { grid-template-columns: 1fr; }
+    .portfolio-bar { gap: 12px; }
+    .ch-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="crash-flash" id="crash-flash"></div>
+
+<header>
+  <div class="logo">Wall St.<span> Rookie</span></div>
+  <div class="portfolio-bar">
+    <div class="stat-pill">
+      <span class="label">Cash</span>
+      <span class="value" id="hdr-cash">$10,000.00</span>
+    </div>
+    <div class="stat-pill">
+      <span class="label">Portfolio</span>
+      <span class="value" id="hdr-portfolio">$10,000.00</span>
+    </div>
+    <div class="stat-pill">
+      <span class="label">P&L</span>
+      <span class="value" id="hdr-pnl">+$0.00</span>
+    </div>
+    <button class="btn btn-orange" onclick="openChallengeSelect()">⚡ Challenge</button>
+    <button class="btn btn-ghost" onclick="openLesson()">📚 Lessons</button>
+    <button class="btn" onclick="resetGame()">New Game</button>
+  </div>
+</header>
+
+<!-- TICKER -->
+<div style="padding:9px 22px;position:relative;z-index:1;">
+  <div class="ticker-wrap"><div class="ticker-inner" id="ticker"></div></div>
+</div>
+
+<div class="container">
+  <!-- CHALLENGE BANNER -->
+  <div id="challenge-banner" class="challenge-banner free-play" style="margin-bottom:18px;">
+    <div class="ch-left">
+      <span class="ch-tag">MODE</span>
+      <div class="ch-title" id="ch-title">Free Play</div>
+      <div class="ch-desc" id="ch-desc">No pressure. Practice buying and selling. Hit ⚡ Challenge when you're ready.</div>
+    </div>
+    <div class="ch-right">
+      <div class="ch-timer" id="ch-timer" style="display:none">--:--</div>
+      <div id="ch-progress-wrap" style="display:none;min-width:160px;">
+        <div style="font-size:0.65rem;color:var(--muted);text-align:right;" id="ch-progress-label">Progress</div>
+        <div class="target-bar-wrap"><div class="target-bar" id="ch-target-bar" style="width:0%"></div></div>
+      </div>
+      <button class="btn btn-red" id="ch-abort-btn" style="display:none;font-size:0.72rem;" onclick="abortChallenge()">Quit Challenge</button>
+    </div>
+  </div>
+
+  <div class="grid-main">
+    <!-- LEFT -->
+    <div class="col-left">
+
+      <!-- CHART -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Price Chart</span>
+          <span id="market-status" style="font-size:0.68rem;padding:3px 10px;border-radius:20px;background:rgba(0,229,160,0.15);color:var(--green);">● MARKET OPEN</span>
+        </div>
+        <div class="chart-container">
+          <div class="chart-controls">
+            <div class="stock-selector">
+              <select id="stock-select" onchange="switchStock()"></select>
+            </div>
+            <button class="chart-btn active" onclick="setRange(this,'1D')">1D</button>
+            <button class="chart-btn" onclick="setRange(this,'1W')">1W</button>
+            <button class="chart-btn" onclick="setRange(this,'1M')">1M</button>
+          </div>
+          <div class="price-display">
+            <span class="price-big" id="chart-price">$0.00</span>
+            <span class="price-change up" id="chart-change">+0.00%</span>
+          </div>
+          <div class="price-name" id="chart-name">Loading...</div>
+          <canvas id="priceChart" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- MISSIONS (shown during challenge) -->
+      <div class="card" id="missions-card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">🎯 Missions</span>
+          <span id="missions-done" style="font-size:0.7rem;color:var(--muted);">0 / 0</span>
+        </div>
+        <div class="card-body">
+          <div class="missions-grid" id="missions-list"></div>
+        </div>
+      </div>
+
+      <!-- HOLDINGS -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Your Holdings</span>
+          <span id="holding-count" style="font-size:0.7rem;color:var(--muted);">0 positions</span>
+        </div>
+        <div class="card-body">
+          <div class="holdings-list" id="holdings-list">
+            <div class="empty-state">No positions yet. Buy your first stock!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEWS -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Market News</span>
+          <span style="font-size:0.68rem;color:var(--muted);" id="news-time">Just now</span>
+        </div>
+        <div class="card-body" id="news-feed"></div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT -->
+    <div class="col-right">
+
+      <!-- TRADE -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Place Order</span></div>
+        <div class="card-body">
+          <div class="trade-row">
+            <span class="trade-label">Stock</span>
+            <select id="trade-stock" class="inline-select" style="width:100%;" onchange="updateTradeCost()"></select>
+          </div>
+          <div class="trade-row">
+            <span class="trade-label">Shares</span>
+            <input type="number" id="trade-qty" min="1" value="1" oninput="updateTradeCost()">
+          </div>
+          <div class="trade-cost" id="trade-cost">Cost: $0.00 | Available: $10,000.00</div>
+          <div class="trade-buttons">
+            <button class="btn" onclick="executeTrade('buy')" style="font-size:0.78rem;">▲ BUY</button>
+            <button class="btn btn-red" onclick="executeTrade('sell')" style="font-size:0.78rem;">▼ SELL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCORE -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Your Score</span></div>
+        <div class="card-body" style="text-align:center;">
+          <div class="score-ring" id="score-ring" style="--pct:0%">
+            <div class="score-inner">
+              <span class="score-val" id="score-val">0</span>
+              <span class="score-lbl">POINTS</span>
+            </div>
+          </div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:10px;">Level: <span id="player-level" style="color:var(--gold);">Rookie</span></div>
+          <div style="font-size:0.66rem;color:var(--muted);">Lessons Complete</div>
+          <div class="progress-bar-wrap"><div class="progress-bar" id="lesson-progress" style="width:0%"></div></div>
+          <div style="font-size:0.63rem;color:var(--muted);margin-top:4px;" id="lesson-count">0 / 5</div>
+        </div>
+      </div>
+
+      <!-- TIP -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">💡 Tip of the Day</span></div>
+        <div class="card-body"><div class="tip-box" id="tip-box">Loading...</div></div>
+      </div>
+
+      <!-- TRADE LOG -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Trade Log</span>
+          <span id="trade-count" style="font-size:0.7rem;color:var(--muted);">0 trades</span>
+        </div>
+        <div class="card-body" style="max-height:190px;overflow-y:auto;" id="trade-log">
+          <div class="empty-state">Your trades will appear here.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- CHALLENGE SELECT MODAL -->
+<div class="modal-overlay" id="challenge-select-modal">
+  <div class="modal ch-modal">
+    <button class="modal-close" onclick="closeChallengeSelect()">×</button>
+    <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:2px;color:var(--orange);margin-bottom:8px;">⚡ Challenge Mode</div>
+    <h2 style="color:var(--orange);font-family:'Syne',sans-serif;font-size:1.35rem;margin-bottom:6px;">Pick Your Challenge</h2>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:4px;">Medium difficulty. Real pressure. Let's see what you've got.</p>
+    <div class="ch-grid" id="challenge-cards"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost" onclick="closeChallengeSelect()" style="font-size:0.75rem;">Cancel</button>
+      <button class="btn btn-orange" onclick="startSelectedChallenge()" style="font-size:0.75rem;">Start Challenge →</button>
+    </div>
+  </div>
+</div>
+
+<!-- LESSON MODAL -->
+<div class="modal-overlay" id="lesson-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeLesson()">×</button>
+    <div class="lesson-badge" id="lesson-badge">Lesson 1 of 5</div>
+    <h2 id="lesson-title"></h2>
+    <div id="lesson-body"></div>
+    <div class="lesson-nav">
+      <button class="btn btn-ghost" onclick="prevLesson()" style="font-size:0.73rem;">← Prev</button>
+      <div class="lesson-dots" id="lesson-dots"></div>
+      <button class="btn" onclick="nextLesson()" style="font-size:0.73rem;" id="lesson-next-btn">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="modal-overlay" id="result-modal">
+  <div class="modal result-modal">
+    <div class="result-emoji" id="result-emoji">🏆</div>
+    <h2 id="result-title" style="font-family:'Syne',sans-serif;font-weight:800;"></h2>
+    <p id="result-message" style="color:var(--muted);font-size:0.82rem;line-height:1.6;"></p>
+    <div class="result-stats" id="result-stats"></div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap;">
+      <button class="btn btn-orange" onclick="openChallengeSelect();closeResult();" style="font-size:0.78rem;">Try Another Challenge</button>
+      <button class="btn btn-ghost" onclick="closeResult()" style="font-size:0.78rem;">Keep Playing</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  DATA
+// ============================================================
+const STOCKS = [
+  { sym:'AAPL', name:'Apple Inc.',      price:182.50, sector:'Tech' },
+  { sym:'TSLA', name:'Tesla Inc.',      price:241.00, sector:'EV/Auto' },
+  { sym:'AMZN', name:'Amazon.com',      price:178.30, sector:'E-Commerce' },
+  { sym:'NVDA', name:'Nvidia Corp.',    price:875.00, sector:'Semiconductors' },
+  { sym:'NFLX', name:'Netflix Inc.',    price:634.20, sector:'Streaming' },
+  { sym:'MSFT', name:'Microsoft Corp.', price:415.80, sector:'Tech' },
+];
+
+const CHALLENGES = [
+  {
+    id: 'profit_target',
+    icon: '🎯',
+    title: 'Double or Nothing',
+    desc: 'Grow your $10,000 to $20,000 before the market closes.',
+    reward: '+500 pts',
+    duration: 5 * 60,
+    setup: () => ({ target: 20000 }),
+    check: (s, cfg) => {
+      const total = s.cash + calcPortfolioValue();
+      return { pct: Math.min(100, (total - 10000) / 10000 * 100), done: total >= cfg.target, label: `$${total.toFixed(0)} / $${cfg.target.toLocaleString()}` };
+    },
+    winMsg: "You doubled your money! You clearly know what you're doing.",
+    loseMsg: "So close. The market humbled you this time — it does that to everyone.",
+    scoreBonus: 500
+  },
+  {
+    id: 'survive_crash',
+    icon: '🌪️',
+    title: 'Crash Survival',
+    desc: 'A market crash is coming. Stay above $7,000 total while it hits.',
+    reward: '+400 pts',
+    duration: 4 * 60,
+    setup: () => ({ floor: 7000, crashAt: 30, crashed: false }),
+    check: (s, cfg) => {
+      const total = s.cash + calcPortfolioValue();
+      return { pct: Math.min(100, (total - cfg.floor) / (10000 - cfg.floor) * 100), done: false, failed: total < cfg.floor, label: `Floor: $${cfg.floor.toLocaleString()} · You: $${total.toFixed(0)}` };
+    },
+    winMsg: "You survived the crash! Staying calm under pressure is the hardest skill in trading.",
+    loseMsg: "The crash took you out. Next time: diversify and hold some cash as a buffer.",
+    scoreBonus: 400
+  },
+  {
+    id: 'missions',
+    icon: '📋',
+    title: 'Mission Board',
+    desc: 'Complete 4 trading missions to earn a big bonus.',
+    reward: '+600 pts',
+    duration: 6 * 60,
+    setup: () => ({
+      missions: [
+        { id:'sectors', title:'Diversify', desc:'Own stocks in 3 different sectors', icon:'🌐', pts:100, done:false },
+        { id:'profit_trade', title:'Profit Trade', desc:'Sell a stock for a profit', icon:'📈', pts:150, done:false },
+        { id:'five_trades', title:'Active Trader', desc:'Make 5 trades total', icon:'⚡', pts:100, done:false },
+        { id:'hold_nvda', title:'Diamond Hands', desc:'Buy NVDA and hold it for 60 seconds', icon:'💎', pts:150, done:false, boughtAt: null },
+      ]
+    }),
+    check: (s, cfg) => {
+      const done = cfg.missions.filter(m => m.done).length;
+      return { pct: done / cfg.missions.length * 100, done: done === cfg.missions.length, label: `${done} / ${cfg.missions.length} complete` };
+    },
+    winMsg: "All missions complete! You've shown real range as a trader.",
+    loseMsg: "Time ran out! Good effort though — check which missions you missed and try again.",
+    scoreBonus: 600
+  },
+  {
+    id: 'beat_clock',
+    icon: '⏱️',
+    title: 'Beat the Clock',
+    desc: 'Make as much profit as possible in 3 minutes. Top score wins bragging rights.',
+    reward: '+pts based on profit',
+    duration: 3 * 60,
+    setup: () => ({}),
+    check: (s, cfg) => {
+      const total = s.cash + calcPortfolioValue();
+      const pnl = total - 10000;
+      return { pct: Math.min(100, Math.max(0, pnl / 5000 * 100)), done: false, label: `P&L: ${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}` };
+    },
+    winMsg: "Time's up! Here's how you did:",
+    loseMsg: "Time's up! Here's how you did:",
+    scoreBonus: 0 // dynamic
+  }
+];
+
+const LESSONS = [
+  { title:"What Is a Stock?", badge:"Lesson 1 of 5", body:`<p>When you buy a <strong style="color:var(--accent)">stock</strong>, you're buying a tiny piece of a real company. If the company does well, your piece becomes more valuable. If it struggles, your piece is worth less.</p><p>Think of it like buying a slice of a pizza business with a friend. If the restaurant gets popular, your slice of ownership is worth more.</p><p><strong style="color:var(--accent)">Key term:</strong> A <em>share</em> is one unit of ownership. Buy 10 shares of AAPL? You own a tiny sliver of Apple.</p>` },
+  { title:"How Prices Move", badge:"Lesson 2 of 5", body:`<p>Stock prices change based on <strong style="color:var(--accent)">supply and demand</strong>. More people want to buy? Price goes up. More people want to sell? Price drops.</p><p>This happens because of <em>news</em>, <em>earnings reports</em>, <em>economy changes</em>, or just market mood. Sometimes prices move on pure emotion — people panic, or get overly excited.</p><p><strong style="color:var(--accent)">Watch out for:</strong> Prices that shoot up fast often come back down. That's called a <em>correction</em>.</p>` },
+  { title:"Buying & Selling", badge:"Lesson 3 of 5", body:`<p>You make money by buying low and selling high. Sounds simple, right? The tricky part is that <em>nobody knows the future</em>.</p><p>When you <strong style="color:var(--accent)">buy</strong> a stock, you're betting the price will go up. When you <strong style="color:var(--red)">sell</strong>, you're locking in whatever profit (or loss) you've made.</p><p><strong style="color:var(--accent)">Tip:</strong> Don't sell in a panic. Markets go up and down all the time. Many people lose money by selling when prices dip, then missing the recovery.</p>` },
+  { title:"Diversification", badge:"Lesson 4 of 5", body:`<p>Ever heard <em>"don't put all your eggs in one basket"</em>? That's <strong style="color:var(--accent)">diversification</strong>. Spread your money across different stocks and sectors.</p><p>If you put everything in one company and it crashes, you lose everything. But if you own 6 different companies and one crashes, the others might keep you afloat.</p><p><strong style="color:var(--accent)">Try this:</strong> In Challenge Mode, the Missions challenge literally rewards you for owning 3 different sectors. Diversification = points!</p>` },
+  { title:"Reading the Market", badge:"Lesson 5 of 5", body:`<p>Two words you'll hear a lot: <strong style="color:var(--green)">Bull Market</strong> (prices going up overall) and <strong style="color:var(--red)">Bear Market</strong> (prices going down overall).</p><p>News events matter too. In the Crash Survival challenge, watch the news feed for the crash warning — it gives you a chance to react before prices tank.</p><p><strong style="color:var(--accent)">Final tip:</strong> Long-term investors generally beat short-term traders. Patience is a real strategy.</p>` }
+];
+
+const NEWS_TEMPLATES = [
+  { tag:'bullish', texts:['AAPL reports record iPhone sales, beating analyst expectations.','NVDA announces breakthrough in AI chip performance.','TSLA unveils new gigafactory, shares surge on optimism.','MSFT Azure cloud revenue grows 28% year-over-year.','AMZN Prime membership hits all-time high of 220M subscribers.'] },
+  { tag:'bearish', texts:['NFLX subscriber growth misses estimates, stock under pressure.','TSLA faces new recall over autopilot software concerns.','AAPL supply chain issues reported out of Southeast Asia.','NVDA faces export restriction threats from regulators.','Rising interest rates put pressure on tech valuations.'] },
+  { tag:'neutral', texts:['Markets await Fed interest rate decision next Tuesday.','Oil prices stabilize after volatile week.','Analysts split on Q3 earnings expectations for big tech.','MSFT and AMZN both investing heavily in AI infrastructure.','Sector rotation into defensive stocks continues quietly.'] },
+];
+
+const CRASH_NEWS = [
+  { tag:'crash', text:'⚠️ BREAKING: Surprise Fed rate hike announced — markets in freefall.' },
+  { tag:'crash', text:'⚠️ BREAKING: Major hedge fund liquidating billions in tech positions.' },
+  { tag:'crash', text:'⚠️ BREAKING: Global sell-off triggered by surprise inflation data.' },
+];
+
+const TIPS = [
+  "<strong>Buy the rumor, sell the news.</strong> Prices often rise in anticipation of good news, then drop when it's announced.",
+  "<strong>Time in the market > timing the market.</strong> Staying invested long-term usually beats trying to pick perfect moments.",
+  "<strong>Volume matters.</strong> A stock moving up on low volume is less convincing than one moving up on high volume.",
+  "<strong>P/E Ratio</strong> tells you how expensive a stock is. A high P/E means investors expect big future growth.",
+  "<strong>Emotions are the enemy.</strong> Fear and greed cause most bad trades. Stick to a plan.",
+  "<strong>Dollar-cost averaging</strong> means investing a fixed amount regularly. Removes the guesswork.",
+  "<strong>In the Crash Survival challenge,</strong> keep 30–40% in cash. Don't go all-in before the crash hits.",
+  "<strong>In Beat the Clock,</strong> high-volatility stocks like TSLA and NVDA can swing big — risky but potentially rewarding.",
+];
+
+// ============================================================
+//  STATE
+// ============================================================
+let state = {
+  cash: 10000, holdings: {}, prices: {}, history: {},
+  trades: [], score: 0, lessonsRead: [],
+  currentLesson: 0, currentStock: 'AAPL', range: '1D', tick: 0,
+  challenge: null,  // active challenge object
+  selectedChallengeId: null,
+  marketInterval: null,
+  challengeInterval: null,
+};
+
+// ============================================================
+//  INIT
+// ============================================================
+function initGame() {
+  STOCKS.forEach(s => {
+    state.prices[s.sym] = s.price;
+    state.history[s.sym] = generateHistory(s.price, 90);
+  });
+  populateSelects();
+  renderTicker();
+  renderChart();
+  renderHoldings();
+  renderTradeLog();
+  updateHeader();
+  renderNews();
+  renderTip();
+  renderScore();
+  renderChallengeBanner();
+  buildChallengeCards();
+  startMarket();
+}
+
+function generateHistory(base, days) {
+  const arr = [base];
+  for (let i = 1; i < days * 8; i++) {
+    const ch = (Math.random() - 0.492) * base * 0.012;
+    arr.push(Math.max(1, arr[arr.length-1] + ch));
+  }
+  return arr;
+}
+
+function populateSelects() {
+  ['stock-select','trade-stock'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    STOCKS.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.sym; o.textContent = `${s.sym} — ${s.name}`;
+      el.appendChild(o);
+    });
+  });
+  document.getElementById('stock-select').value = state.currentStock;
+  document.getElementById('trade-stock').value = state.currentStock;
+}
+
+// ============================================================
+//  MARKET
+// ============================================================
+function startMarket() {
+  if (state.marketInterval) clearInterval(state.marketInterval);
+  state.marketInterval = setInterval(() => {
+    const isCrash = state.challenge?.id === 'survive_crash' && state.challenge.cfg.crashed;
+    STOCKS.forEach(s => {
+      const vol = s.sym === 'TSLA' ? 0.018 : s.sym === 'NVDA' ? 0.015 : 0.009;
+      const bias = isCrash ? -0.025 : 0;
+      const ch = (Math.random() - 0.492 + bias) * state.prices[s.sym] * (isCrash ? vol * 2.5 : vol);
+      state.prices[s.sym] = Math.max(1, state.prices[s.sym] + ch);
+      state.history[s.sym].push(state.prices[s.sym]);
+      if (state.history[s.sym].length > 720) state.history[s.sym].shift();
+    });
+    state.tick++;
+    renderTicker();
+    renderChart();
+    renderHoldings();
+    updateHeader();
+    updateTradeCost();
+    if (state.tick % 30 === 0) renderNews();
+    if (state.challenge) tickChallenge();
+  }, 1500);
+}
+
+// ============================================================
+//  CHALLENGE
+// ============================================================
+function buildChallengeCards() {
+  const grid = document.getElementById('challenge-cards');
+  grid.innerHTML = CHALLENGES.map(c => `
+    <div class="ch-card" id="chcard-${c.id}" onclick="selectChallenge('${c.id}')">
+      <div class="ch-card-icon">${c.icon}</div>
+      <div class="ch-card-title">${c.title}</div>
+      <div class="ch-card-desc">${c.desc}</div>
+      <div class="ch-card-reward">🏅 Reward: ${c.reward}</div>
+    </div>`).join('');
+}
+
+function selectChallenge(id) {
+  state.selectedChallengeId = id;
+  document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('chcard-' + id)?.classList.add('selected');
+}
+
+function openChallengeSelect() {
+  if (state.challenge) { showToast('Finish or quit the current challenge first.', true); return; }
+  document.getElementById('challenge-select-modal').classList.add('open');
+}
+function closeChallengeSelect() {
+  document.getElementById('challenge-select-modal').classList.remove('open');
+}
+
+function startSelectedChallenge() {
+  if (!state.selectedChallengeId) { showToast('Pick a challenge first!', true); return; }
+  closeChallengeSelect();
+  const def = CHALLENGES.find(c => c.id === state.selectedChallengeId);
+  state.challenge = {
+    id: def.id,
+    def,
+    cfg: def.setup(),
+    timeLeft: def.duration,
+    startTime: Date.now(),
+    startTotal: state.cash + calcPortfolioValue(),
+  };
+  // Reset game money for a fresh challenge
+  state.cash = 10000;
+  state.holdings = {};
+  state.trades = [];
+  STOCKS.forEach(s => { state.prices[s.sym] = s.price; state.history[s.sym] = generateHistory(s.price, 30); });
+  renderHoldings();
+  renderTradeLog();
+  updateHeader();
+  renderChallengeBanner();
+  document.getElementById('missions-card').style.display = def.id === 'missions' ? '' : 'none';
+  if (def.id === 'missions') renderMissions();
+  showToast(`🟠 Challenge started: ${def.title}! Good luck.`);
+}
+
+function tickChallenge() {
+  const ch = state.challenge;
+  if (!ch) return;
+  ch.timeLeft = ch.def.duration - Math.floor((Date.now() - ch.startTime) / 1000);
+
+  // Crash challenge: trigger crash at tick 30 seconds in
+  if (ch.id === 'survive_crash' && !ch.cfg.crashed && (ch.def.duration - ch.timeLeft) >= ch.cfg.crashAt) {
+    ch.cfg.crashed = true;
+    triggerCrash();
+  }
+
+  // Missions: check progress
+  if (ch.id === 'missions') checkMissionProgress();
+
+  // Update banner
+  renderChallengeBanner();
+
+  // Time up
+  if (ch.timeLeft <= 0) {
+    endChallenge(ch.id === 'beat_clock' ? 'time' : checkWin() ? 'win' : 'lose');
+    return;
+  }
+
+  // Fail condition check
+  const result = ch.def.check(state, ch.cfg);
+  if (result.failed) { endChallenge('lose'); return; }
+  if (result.done) { endChallenge('win'); return; }
+}
+
+function checkWin() {
+  const ch = state.challenge;
+  const result = ch.def.check(state, ch.cfg);
+  // For survive_crash, win = survived to end without going below floor
+  if (ch.id === 'survive_crash') return !result.failed;
+  if (ch.id === 'missions') return result.done;
+  return result.done;
+}
+
+function checkMissionProgress() {
+  const ms = state.challenge.cfg.missions;
+
+  // Sectors
+  if (!ms.find(m=>m.id==='sectors').done) {
+    const sectors = new Set(Object.keys(state.holdings).filter(s=>state.holdings[s].shares>0).map(s=>STOCKS.find(x=>x.sym===s)?.sector));
+    if (sectors.size >= 3) completeMission('sectors');
+  }
+
+  // Five trades
+  if (!ms.find(m=>m.id==='five_trades').done && state.trades.length >= 5) completeMission('five_trades');
+
+  // Profit trade
+  if (!ms.find(m=>m.id==='profit_trade').done) {
+    const hasProfitSell = state.trades.some(t => t.type === 'SELL' && t.pnl > 0);
+    if (hasProfitSell) completeMission('profit_trade');
+  }
+
+  // Hold NVDA 60s
+  const nvdaMission = ms.find(m=>m.id==='hold_nvda');
+  if (!nvdaMission.done) {
+    if (state.holdings['NVDA']?.shares > 0) {
+      if (!nvdaMission.boughtAt) nvdaMission.boughtAt = Date.now();
+      else if ((Date.now() - nvdaMission.boughtAt) >= 60000) completeMission('hold_nvda');
+    } else {
+      nvdaMission.boughtAt = null;
+    }
+  }
+
+  renderMissions();
+}
+
+function completeMission(id) {
+  const m = state.challenge.cfg.missions.find(x=>x.id===id);
+  if (m && !m.done) {
+    m.done = true;
+    state.score += m.pts;
+    renderScore();
+    showToast(`✅ Mission complete: ${m.title}! +${m.pts} pts`);
+  }
+}
+
+function renderMissions() {
+  if (!state.challenge || state.challenge.id !== 'missions') return;
+  const ms = state.challenge.cfg.missions;
+  const done = ms.filter(m=>m.done).length;
+  document.getElementById('missions-done').textContent = `${done} / ${ms.length}`;
+  document.getElementById('missions-list').innerHTML = ms.map(m => `
+    <div class="mission-row ${m.done ? 'done' : ''}">
+      <div class="mission-icon">${m.icon}</div>
+      <div class="mission-text">
+        <div class="m-title">${m.title}</div>
+        <div class="m-sub">${m.desc}</div>
+      </div>
+      <div class="m-reward">+${m.pts}pts</div>
+      <div class="m-check">${m.done ? '✅' : '○'}</div>
+    </div>`).join('');
+}
+
+function triggerCrash() {
+  // Visual flash
+  const fl = document.getElementById('crash-flash');
+  fl.style.display = 'block';
+  setTimeout(()=>fl.style.display='none', 600);
+
+  // Crash news
+  const n = CRASH_NEWS[Math.floor(Math.random()*CRASH_NEWS.length)];
+  const feed = document.getElementById('news-feed');
+  feed.innerHTML = `<div class="news-item"><span class="news-tag crash">🚨 CRASH ALERT</span><div class="news-headline" style="color:var(--red);font-weight:600;">${n.text}</div></div>` + feed.innerHTML;
+
+  showToast('🚨 MARKET CRASH! Prices are tanking fast!', true);
+  document.getElementById('market-status').textContent = '🔴 MARKET CRASH';
+  document.getElementById('market-status').style.background = 'rgba(255,77,106,0.2)';
+  document.getElementById('market-status').style.color = 'var(--red)';
+}
+
+function renderChallengeBanner() {
+  const banner = document.getElementById('challenge-banner');
+  const ch = state.challenge;
+
+  if (!ch) {
+    banner.className = 'challenge-banner free-play';
+    document.getElementById('ch-tag') && null;
+    document.querySelector('.ch-tag').textContent = 'MODE';
+    document.getElementById('ch-title').textContent = 'Free Play';
+    document.getElementById('ch-desc').textContent = "No pressure. Practice buying and selling. Hit ⚡ Challenge when you're ready.";
+    document.getElementById('ch-timer').style.display = 'none';
+    document.getElementById('ch-progress-wrap').style.display = 'none';
+    document.getElementById('ch-abort-btn').style.display = 'none';
+    return;
+  }
+
+  banner.className = 'challenge-banner active-challenge';
+  document.querySelector('.ch-tag').textContent = '⚡ Challenge Active';
+  document.getElementById('ch-title').textContent = ch.def.title;
+
+  const result = ch.def.check(state, ch.cfg);
+  document.getElementById('ch-desc').textContent = result.label;
+
+  // Timer
+  const tEl = document.getElementById('ch-timer');
+  tEl.style.display = '';
+  const m = Math.floor(ch.timeLeft / 60);
+  const s = ch.timeLeft % 60;
+  tEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  tEl.className = 'ch-timer' + (ch.timeLeft <= 30 ? ' danger' : '');
+
+  // Progress
+  const pw = document.getElementById('ch-progress-wrap');
+  pw.style.display = '';
+  document.getElementById('ch-progress-label').textContent = result.label;
+  document.getElementById('ch-target-bar').style.width = result.pct + '%';
+
+  document.getElementById('ch-abort-btn').style.display = '';
+}
+
+function abortChallenge() {
+  if (!confirm('Quit this challenge? Your progress will be lost.')) return;
+  state.challenge = null;
+  document.getElementById('missions-card').style.display = 'none';
+  document.getElementById('market-status').textContent = '● MARKET OPEN';
+  document.getElementById('market-status').style.background = 'rgba(0,229,160,0.15)';
+  document.getElementById('market-status').style.color = 'var(--green)';
+  renderChallengeBanner();
+  showToast('Challenge abandoned. Back to free play.');
+}
+
+function endChallenge(outcome) {
+  const ch = state.challenge;
+  const def = ch.def;
+  const total = state.cash + calcPortfolioValue();
+  const pnl = total - 10000;
+  let bonus = def.scoreBonus;
+
+  state.challenge = null;
+  document.getElementById('missions-card').style.display = 'none';
+  document.getElementById('market-status').textContent = '● MARKET OPEN';
+  document.getElementById('market-status').style.background = 'rgba(0,229,160,0.15)';
+  document.getElementById('market-status').style.color = 'var(--green)';
+  renderChallengeBanner();
+
+  // Beat the clock: bonus = profit * 0.1 (min 0)
+  if (def.id === 'beat_clock') {
+    bonus = Math.max(0, Math.round(pnl * 0.1));
+  }
+
+  const won = outcome === 'win' || (outcome === 'time' && def.id === 'beat_clock');
+  if (won) state.score += bonus;
+  renderScore();
+
+  // Show result
+  document.getElementById('result-emoji').textContent = won ? '🏆' : '😓';
+  document.getElementById('result-title').textContent = won ? 'Challenge Complete!' : 'Challenge Failed';
+  document.getElementById('result-message').textContent = won ? def.winMsg : def.loseMsg;
+
+  const stats = [
+    { val: won ? '✅ WIN' : '❌ LOSS', lbl: 'Outcome' },
+    { val: (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(0), lbl: 'P&L' },
+    { val: state.trades.length, lbl: 'Trades' },
+    { val: '+' + (won ? bonus : 0) + 'pts', lbl: 'Bonus' },
+  ];
+  document.getElementById('result-stats').innerHTML = stats.map(s =>
+    `<div class="result-stat"><div class="rs-val" style="color:${s.lbl==='P&L'?(pnl>=0?'var(--green)':'var(--red)'):'var(--text)'}">${s.val}</div><div class="rs-lbl">${s.lbl}</div></div>`
+  ).join('');
+
+  document.getElementById('result-modal').classList.add('open');
+}
+
+function closeResult() {
+  document.getElementById('result-modal').classList.remove('open');
+}
+
+// ============================================================
+//  HEADER
+// ============================================================
+function updateHeader() {
+  const pv = calcPortfolioValue();
+  const total = state.cash + pv;
+  const pnl = total - 10000;
+  document.getElementById('hdr-cash').textContent = fmt(state.cash);
+  document.getElementById('hdr-portfolio').textContent = fmt(total);
+  const el = document.getElementById('hdr-pnl');
+  el.textContent = (pnl >= 0 ? '+' : '-') + fmt(Math.abs(pnl));
+  el.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
+function calcPortfolioValue() {
+  return Object.entries(state.holdings).reduce((sum,[sym,h]) => sum + h.shares * state.prices[sym], 0);
+}
+
+// ============================================================
+//  TICKER
+// ============================================================
+function renderTicker() {
+  const items = STOCKS.map(s => {
+    const h = state.history[s.sym];
+    const open = h[Math.max(0, h.length - 50)];
+    const pct = (state.prices[s.sym] - open) / open * 100;
+    const cls = pct >= 0 ? 'up' : 'down';
+    return `<span class="ticker-item"><span class="ticker-sym">${s.sym}</span><span class="ticker-price">$${state.prices[s.sym].toFixed(2)}</span><span class="${cls}">${pct>=0?'▲':'▼'} ${Math.abs(pct).toFixed(2)}%</span></span>`;
+  }).join('');
+  document.getElementById('ticker').innerHTML = items + items;
+}
+
+// ============================================================
+//  CHART
+// ============================================================
+let chartCtx;
+
+function renderChart() {
+  const sym = state.currentStock;
+  const h = state.history[sym];
+  let pts = state.range === '1D' ? h.slice(-50) : state.range === '1W' ? h.slice(-200) : h.slice(-500);
+
+  const open = pts[0], cur = pts[pts.length-1];
+  const pct = (cur - open) / open * 100;
+  const isUp = pct >= 0;
+
+  document.getElementById('chart-price').textContent = `$${cur.toFixed(2)}`;
+  const chEl = document.getElementById('chart-change');
+  chEl.textContent = `${isUp?'+':''}${pct.toFixed(2)}%`;
+  chEl.className = `price-change ${isUp?'up':'down'}`;
+  document.getElementById('chart-name').textContent = STOCKS.find(s=>s.sym===sym).name + ' · ' + sym;
+
+  const canvas = document.getElementById('priceChart');
+  if (!canvas.getContext) return;
+  if (!chartCtx) chartCtx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  canvas.width = W; canvas.height = 200;
+  const ctx = chartCtx;
+  ctx.clearRect(0, 0, W, 200);
+
+  const min = Math.min(...pts) * 0.998, max = Math.max(...pts) * 1.002;
+  const range = max - min || 1;
+  const color = isUp ? '#00e5a0' : '#ff4d6a';
+  const colorFade = isUp ? 'rgba(0,229,160,' : 'rgba(255,77,106,';
+  const toX = i => (i / (pts.length-1)) * W;
+  const toY = v => 200 - ((v - min) / range) * 180 - 10;
+
+  ctx.strokeStyle = 'rgba(31,45,69,0.6)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const y = 10 + (i/4)*180; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  const grad = ctx.createLinearGradient(0,10,0,200);
+  grad.addColorStop(0, colorFade+'0.25)'); grad.addColorStop(1, colorFade+'0)');
+  ctx.beginPath(); ctx.moveTo(toX(0), toY(pts[0]));
+  pts.forEach((v,i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(W,200); ctx.lineTo(0,200); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  ctx.beginPath(); ctx.moveTo(toX(0), toY(pts[0]));
+  pts.forEach((v,i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+
+  const lx = toX(pts.length-1), ly = toY(pts[pts.length-1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI*2);
+  ctx.fillStyle = color; ctx.fill();
+}
+
+function setRange(btn, r) {
+  state.range = r;
+  document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+}
+
+function switchStock() {
+  state.currentStock = document.getElementById('stock-select').value;
+  document.getElementById('trade-stock').value = state.currentStock;
+  renderChart(); updateTradeCost();
+}
+
+// ============================================================
+//  TRADE
+// ============================================================
+function updateTradeCost() {
+  const sym = document.getElementById('trade-stock').value;
+  const qty = parseInt(document.getElementById('trade-qty').value) || 0;
+  const cost = (state.prices[sym] || 0) * qty;
+  document.getElementById('trade-cost').textContent = `Cost: ${fmt(cost)} | Available: ${fmt(state.cash)}`;
+}
+
+function executeTrade(action) {
+  const sym = document.getElementById('trade-stock').value;
+  const qty = parseInt(document.getElementById('trade-qty').value);
+  if (!qty || qty < 1) { showToast('Enter a valid quantity.', true); return; }
+  const price = state.prices[sym];
+  const total = price * qty;
+
+  if (action === 'buy') {
+    if (total > state.cash) { showToast('Not enough cash!', true); return; }
+    state.cash -= total;
+    if (!state.holdings[sym]) state.holdings[sym] = { shares:0, avgCost:0 };
+    const h = state.holdings[sym];
+    h.avgCost = (h.avgCost * h.shares + total) / (h.shares + qty);
+    h.shares += qty;
+    state.score += 10;
+    showToast(`✅ Bought ${qty} share${qty>1?'s':''} of ${sym} at ${fmt(price)}`);
+    addTradeLog('BUY', sym, qty, price);
+  } else {
+    if (!state.holdings[sym] || state.holdings[sym].shares < qty) { showToast(`You don't own enough ${sym} shares!`, true); return; }
+    state.cash += total;
+    state.holdings[sym].shares -= qty;
+    const pnl = (price - state.holdings[sym].avgCost) * qty;
+    state.score += pnl > 0 ? 25 : 5;
+    if (state.holdings[sym].shares === 0) delete state.holdings[sym];
+    showToast(`📤 Sold ${qty} share${qty>1?'s':''} of ${sym} at ${fmt(price)}. P&L: ${pnl>=0?'+':''}${fmt(pnl)}`);
+    addTradeLog('SELL', sym, qty, price, pnl);
+  }
+
+  renderHoldings(); renderTradeLog(); updateHeader(); updateTradeCost(); renderScore();
+}
+
+function addTradeLog(type, sym, qty, price, pnl) {
+  state.trades.unshift({ type, sym, qty, price, pnl, time: new Date().toLocaleTimeString() });
+}
+
+// ============================================================
+//  HOLDINGS
+// ============================================================
+function renderHoldings() {
+  const list = document.getElementById('holdings-list');
+  const entries = Object.entries(state.holdings).filter(([,h]) => h.shares > 0);
+  document.getElementById('holding-count').textContent = `${entries.length} position${entries.length!==1?'s':''}`;
+  if (!entries.length) { list.innerHTML = '<div class="empty-state">No positions yet.</div>'; return; }
+  list.innerHTML = entries.map(([sym,h]) => {
+    const cur = state.prices[sym], value = cur * h.shares;
+    const pnl = (cur - h.avgCost) * h.shares;
+    const pct = (cur - h.avgCost) / h.avgCost * 100;
+    const cls = pnl >= 0 ? 'up' : 'down';
+    return `<div class="holding-row">
+      <div class="holding-sym" style="color:var(--accent2)">${sym}</div>
+      <div class="holding-details">
+        <div class="holding-name">${STOCKS.find(s=>s.sym===sym).name}</div>
+        <div class="holding-shares">${h.shares} shares · avg ${fmt(h.avgCost)}</div>
+      </div>
+      <div class="holding-value">
+        <div style="font-weight:600">${fmt(value)}</div>
+        <div class="holding-pnl ${cls}">${pnl>=0?'+':''}${fmt(pnl)} (${pct>=0?'+':''}${pct.toFixed(1)}%)</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  TRADE LOG
+// ============================================================
+function renderTradeLog() {
+  const log = document.getElementById('trade-log');
+  document.getElementById('trade-count').textContent = `${state.trades.length} trade${state.trades.length!==1?'s':''}`;
+  if (!state.trades.length) { log.innerHTML = '<div class="empty-state">Your trades will appear here.</div>'; return; }
+  log.innerHTML = state.trades.slice(0,15).map(t => {
+    const cls = t.type==='BUY'?'up':'down';
+    const pnlText = t.pnl !== undefined ? ` · ${t.pnl>=0?'+':''}${fmt(t.pnl)}` : '';
+    return `<div style="font-size:0.7rem;padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+      <span><span class="${cls}" style="font-weight:600">${t.type}</span> ${t.qty}x ${t.sym}</span>
+      <span style="color:var(--muted)">${fmt(t.price)}${pnlText}</span>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  NEWS
+// ============================================================
+function renderNews() {
+  if (state.challenge?.id === 'survive_crash' && state.challenge.cfg.crashed) return;
+  const feed = document.getElementById('news-feed');
+  const items = [];
+  for (let i = 0; i < 4; i++) {
+    const cat = NEWS_TEMPLATES[Math.floor(Math.random()*NEWS_TEMPLATES.length)];
+    items.push({ tag:cat.tag, text:cat.texts[Math.floor(Math.random()*cat.texts.length)] });
+  }
+  feed.innerHTML = items.map(n => `<div class="news-item"><span class="news-tag ${n.tag}">${n.tag}</span><div class="news-headline">${n.text}</div></div>`).join('');
+  document.getElementById('news-time').textContent = new Date().toLocaleTimeString();
+}
+
+// ============================================================
+//  TIP / SCORE / LESSONS
+// ============================================================
+function renderTip() {
+  document.getElementById('tip-box').innerHTML = TIPS[Math.floor(Math.random()*TIPS.length)];
+}
+
+function renderScore() {
+  const pct = Math.min(100, state.score / 700 * 100);
+  document.getElementById('score-val').textContent = state.score;
+  document.getElementById('score-ring').style.setProperty('--pct', pct + '%');
+  const levels = [[0,'Rookie'],[100,'Investor'],[250,'Trader'],[400,'Analyst'],[600,'Pro'],[700,'Legend']];
+  const lv = levels.filter(l=>state.score>=l[0]).pop();
+  document.getElementById('player-level').textContent = lv[1];
+  const lp = state.lessonsRead.length / LESSONS.length * 100;
+  document.getElementById('lesson-progress').style.width = lp + '%';
+  document.getElementById('lesson-count').textContent = `${state.lessonsRead.length} / ${LESSONS.length}`;
+}
+
+function openLesson() {
+  state.currentLesson = 0; showLesson();
+  document.getElementById('lesson-modal').classList.add('open');
+}
+function closeLesson() { document.getElementById('lesson-modal').classList.remove('open'); }
+function showLesson() {
+  const l = LESSONS[state.currentLesson];
+  document.getElementById('lesson-badge').textContent = l.badge;
+  document.getElementById('lesson-title').textContent = l.title;
+  document.getElementById('lesson-body').innerHTML = l.body;
+  document.getElementById('lesson-dots').innerHTML = LESSONS.map((_,i) => `<div class="dot ${i===state.currentLesson?'active':''}"></div>`).join('');
+  document.getElementById('lesson-next-btn').textContent = state.currentLesson === LESSONS.length-1 ? 'Done ✓' : 'Next →';
+  if (!state.lessonsRead.includes(state.currentLesson)) {
+    state.lessonsRead.push(state.currentLesson);
+    state.score += 20; renderScore();
+  }
+}
+function nextLesson() { if (state.currentLesson >= LESSONS.length-1) { closeLesson(); return; } state.currentLesson++; showLesson(); }
+function prevLesson() { if (state.currentLesson <= 0) return; state.currentLesson--; showLesson(); }
+
+// ============================================================
+//  UTILS
+// ============================================================
+function fmt(n) { return '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function showToast(msg, isError=false, isWarn=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError?' error':isWarn?' warn':'');
+  setTimeout(() => t.className = 'toast', 3800);
+}
+function resetGame() {
+  if (!confirm('Start a new game? Progress will be lost.')) return;
+  if (state.marketInterval) clearInterval(state.marketInterval);
+  state = { cash:10000, holdings:{}, prices:{}, history:{}, trades:[], score:0, lessonsRead:[], currentLesson:0, currentStock:'AAPL', range:'1D', tick:0, challenge:null, selectedChallengeId:null, marketInterval:null, challengeInterval:null };
+  document.getElementById('missions-card').style.display = 'none';
+  document.getElementById('market-status').textContent = '● MARKET OPEN';
+  document.getElementById('market-status').style.background = 'rgba(0,229,160,0.15)';
+  document.getElementById('market-status').style.color = 'var(--green)';
+  initGame();
+  showToast('🆕 New game started! You have $10,000.');
+}
+
+window.addEventListener('load', initGame);
+</script>
+</body>
+</html>
